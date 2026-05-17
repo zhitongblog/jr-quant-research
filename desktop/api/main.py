@@ -343,6 +343,7 @@ def compute_industry_factor_table(sw1_code: str) -> pd.DataFrame:
         f = compute_factor_latest(df)
         if f is None:
             continue
+        fund = load_fundamentals(s) or {}
         rows.append({
             "qlib_symbol": s,
             "symbol": lookup[s]["symbol"],
@@ -352,8 +353,118 @@ def compute_industry_factor_table(sw1_code: str) -> pd.DataFrame:
             "limit_up_reversal_20d": f["limit_up_reversal_20d"],
             "price_volume_divergence": f["price_volume_divergence"],
             "amihud_illiquidity_20d": f["amihud_illiquidity_20d"],
+            "roe_weighted": fund.get("roe_weighted"),
+            "earnings_yoy": fund.get("earnings_yoy"),
+            "gross_margin": fund.get("gross_margin"),
+            "debt_ratio": fund.get("debt_ratio"),
         })
     return pd.DataFrame(rows)
+
+
+# --- fundamentals + price summary -----------------------------------------
+
+_FUND_COL_MAP = {
+    "roe_weighted":   ["加权净资产收益率"],
+    "roe":            ["净资产收益率"],
+    "earnings_yoy":   ["净利润增长率"],
+    "gross_margin":   ["销售毛利率"],
+    "op_margin":      ["营业利润率"],
+    "debt_ratio":     ["资产负债率"],
+    "current_ratio":  ["流动比率"],
+}
+
+
+def _short_symbol(qlib_sym: str) -> str:
+    """SH600000 -> 600000."""
+    return qlib_sym[2:] if qlib_sym.startswith(("SH", "SZ")) else qlib_sym
+
+
+def load_fundamentals(qlib_symbol: str) -> dict | None:
+    """Read the per-stock fundamentals CSV and return latest + prev quarter."""
+    p = QLIB / "fundamentals" / f"{_short_symbol(qlib_symbol)}.csv"
+    if not p.exists():
+        return None
+    try:
+        df = pd.read_csv(p, encoding="utf-8-sig")
+    except Exception:
+        return None
+    if "日期" not in df.columns or len(df) == 0:
+        return None
+    df["dt"] = pd.to_datetime(df["日期"], errors="coerce")
+    df = df.dropna(subset=["dt"]).sort_values("dt")
+    if df.empty:
+        return None
+
+    def get_col(matchers):
+        for c in df.columns:
+            for m in matchers:
+                if m in c:
+                    return c
+        return None
+
+    def parse_num(v):
+        if pd.isna(v) or v == "" or v == "--":
+            return None
+        try:
+            return float(str(v).replace("%", ""))
+        except (ValueError, TypeError):
+            return None
+
+    cols = {k: get_col(v) for k, v in _FUND_COL_MAP.items()}
+    latest = df.iloc[-1]
+    prev = df.iloc[-2] if len(df) >= 2 else None
+    out = {"as_of": latest["dt"].strftime("%Y-%m-%d")}
+    if prev is not None:
+        out["prev_as_of"] = prev["dt"].strftime("%Y-%m-%d")
+    for k, col in cols.items():
+        if col is None:
+            continue
+        v = parse_num(latest[col])
+        if v is not None:
+            out[k] = v
+        if prev is not None:
+            pv = parse_num(prev[col])
+            if pv is not None:
+                out[f"prev_{k}"] = pv
+    return out
+
+
+def compute_price_summary(df: pd.DataFrame) -> dict | None:
+    """52-week high/low, current position, MA5/10/20/60, volume ratio."""
+    if df is None or len(df) < 20:
+        return None
+    d = df.copy().sort_values("date").reset_index(drop=True)
+    last = d.iloc[-1]
+    close = float(last["close"])
+    out: dict = {"as_of": str(last["date"].date()), "close": close}
+
+    # 52w window (252 trading days)
+    w52 = d.tail(252)
+    hi = float(w52["high"].max())
+    lo = float(w52["low"].min())
+    out["week_52_high"] = hi
+    out["week_52_low"] = lo
+    out["week_52_position_pct"] = (close - lo) / max(hi - lo, 1e-9)
+
+    # Moving averages
+    for w in (5, 10, 20, 60):
+        if len(d) >= w:
+            out[f"ma{w}"] = float(d["close"].tail(w).mean())
+
+    # MA status (bull/bear/mixed)
+    mas = [out.get(f"ma{w}") for w in (5, 10, 20, 60)]
+    if all(m is not None for m in mas):
+        bullish = close > mas[0] > mas[1] > mas[2] > mas[3]
+        bearish = close < mas[0] < mas[1] < mas[2] < mas[3]
+        out["ma_status"] = "bullish" if bullish else "bearish" if bearish else "mixed"
+
+    # Volume ratio (today / mean of previous 5)
+    if len(d) >= 6:
+        prev5 = d["volume"].iloc[-6:-1].mean()
+        if prev5 > 0:
+            out["volume_ratio_5d"] = float(last["volume"]) / float(prev5)
+
+    return out
 
 
 @app.get("/api/stock/{symbol}")
@@ -403,6 +514,11 @@ def stock_detail(symbol: str, peers: int = 8):
         ind_df_calc = ind_df_calc.sort_values("combo", ascending=False)
         peer_table = ind_df_calc.head(peers).to_dict(orient="records")
 
+    # Fundamentals + price summary (longer history needed for 52w)
+    fund = load_fundamentals(symbol)
+    long_df = load_daily(symbol, days=260)
+    price_summary = compute_price_summary(long_df)
+
     return {
         "info": info,
         "factors_latest": self_factors,
@@ -410,6 +526,8 @@ def stock_detail(symbol: str, peers: int = 8):
         "industry_rank": rank,
         "industry_size": 0 if ind_df.empty else len(ind_df),
         "peers": peer_table,
+        "fundamentals": fund,
+        "price_summary": price_summary,
     }
 
 

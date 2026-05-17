@@ -143,6 +143,43 @@ export interface Peer {
   price_volume_divergence: number | null;
   amihud_illiquidity_20d: number | null;
   combo: number;
+  roe_weighted: number | null;
+  earnings_yoy: number | null;
+  gross_margin: number | null;
+  debt_ratio: number | null;
+}
+
+export interface Fundamentals {
+  as_of: string;
+  prev_as_of?: string;
+  roe_weighted?: number;
+  roe?: number;
+  earnings_yoy?: number;
+  gross_margin?: number;
+  op_margin?: number;
+  debt_ratio?: number;
+  current_ratio?: number;
+  prev_roe_weighted?: number;
+  prev_roe?: number;
+  prev_earnings_yoy?: number;
+  prev_gross_margin?: number;
+  prev_op_margin?: number;
+  prev_debt_ratio?: number;
+  prev_current_ratio?: number;
+}
+
+export interface PriceSummary {
+  as_of: string;
+  close: number;
+  week_52_high: number;
+  week_52_low: number;
+  week_52_position_pct: number;
+  ma5?: number;
+  ma10?: number;
+  ma20?: number;
+  ma60?: number;
+  ma_status?: "bullish" | "bearish" | "mixed";
+  volume_ratio_5d?: number;
 }
 
 export interface StockDetail {
@@ -152,6 +189,8 @@ export interface StockDetail {
   industry_rank: Record<string, IndustryRank>;
   industry_size: number;
   peers: Peer[];
+  fundamentals: Fundamentals | null;
+  price_summary: PriceSummary | null;
 }
 
 export interface PriceRow {
