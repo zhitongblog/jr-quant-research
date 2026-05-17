@@ -1,0 +1,51 @@
+# ---- Secrets / personal data ----
+.env
+.env.*
+!.env.example
+paper_trades/
+mlruns/
+
+# ---- Python ----
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+
+# ---- Heavy data (regenerate from scripts/) ----
+qlib_data/
+git_ignore_folder/
+projects/
+pickle_cache/
+
+# ---- Tauri / Node / Rust build artifacts ----
+desktop/api/build/
+desktop/api/dist/
+desktop/api/__pycache__/
+desktop/frontend/dist/
+desktop/frontend/node_modules/
+desktop/frontend/src-tauri/target/
+desktop/frontend/src-tauri/gen/
+desktop/icon-source.png
+
+# ---- Distributable installers (regenerate via tauri build) ----
+dist/*.msi
+dist/*.exe
+
+# ---- Old browser session artifacts ----
+.playwright-mcp/
+
+# ---- OS / IDE ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ---- Misc ----
+*.tmp
+~$*
