@@ -519,6 +519,20 @@ def stock_detail(symbol: str, peers: int = 8):
     long_df = load_daily(symbol, days=260)
     price_summary = compute_price_summary(long_df)
 
+    # In-portfolio flags (which strategies recommend this stock right now)
+    in_portfolio = {"path_a": False, "path_d": False, "ensemble": False}
+    dates = list_portfolio_dates()
+    if dates:
+        latest_pf_path = PAPER / f"portfolio_{dates[-1]}.json"
+        if latest_pf_path.exists():
+            try:
+                pf = json.loads(latest_pf_path.read_text(encoding="utf-8"))
+                in_portfolio["path_a"] = symbol in (pf.get("path_a", {}).get("holdings", []) or [])
+                in_portfolio["path_d"] = symbol in (pf.get("path_d", {}).get("holdings", []) or [])
+                in_portfolio["ensemble"] = symbol in (pf.get("ensemble", {}).get("holdings", []) or [])
+            except Exception:
+                pass
+
     return {
         "info": info,
         "factors_latest": self_factors,
@@ -528,6 +542,7 @@ def stock_detail(symbol: str, peers: int = 8):
         "peers": peer_table,
         "fundamentals": fund,
         "price_summary": price_summary,
+        "in_portfolio": in_portfolio,
     }
 
 

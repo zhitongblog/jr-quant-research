@@ -88,6 +88,8 @@ export function StockDetailView({
         </div>
       </div>
 
+      <VerdictCard detail={detail} />
+
       <Card>
         <CardHeader
           title="K线 / 收盘价 + 成交量"
@@ -226,6 +228,142 @@ export function StockDetailView({
           </CardBody>
         </Card>
       </div>
+    </div>
+  );
+}
+
+// -------- Verdict Card (傻瓜评分卡) --------
+
+type Light = "green" | "yellow" | "red" | "gray";
+
+function VerdictCard({ detail }: { detail: import("@/api").StockDetail }) {
+  // ---------- 1. 基本面 ----------
+  const fund = detail.fundamentals;
+  let fundLight: Light = "gray";
+  let fundReason = "无数据";
+  if (fund) {
+    const roe = fund.roe_weighted ?? fund.roe;
+    const yoy = fund.earnings_yoy;
+    const debt = fund.debt_ratio;
+    let score = 0;
+    const notes: string[] = [];
+    if (roe != null) {
+      if (roe >= 10) { score += 1; notes.push(`ROE ${roe.toFixed(1)}% 健康`); }
+      else if (roe >= 5) { notes.push(`ROE ${roe.toFixed(1)}% 一般`); }
+      else { score -= 1; notes.push(`ROE ${roe.toFixed(1)}% 偏低`); }
+    }
+    if (yoy != null) {
+      if (yoy >= 20) { score += 1; notes.push(`净利同比 +${yoy.toFixed(0)}% 强劲`); }
+      else if (yoy >= 0) { notes.push(`净利同比 +${yoy.toFixed(0)}% 微增`); }
+      else if (yoy >= -20) { score -= 1; notes.push(`净利同比 ${yoy.toFixed(0)}% 下滑`); }
+      else { score -= 2; notes.push(`净利同比 ${yoy.toFixed(0)}% 大幅下滑`); }
+    }
+    if (debt != null) {
+      if (debt < 50) { score += 1; notes.push(`负债率 ${debt.toFixed(0)}% 低`); }
+      else if (debt < 70) { notes.push(`负债率 ${debt.toFixed(0)}% 适中`); }
+      else if (debt < 85) { score -= 1; notes.push(`负债率 ${debt.toFixed(0)}% 偏高`); }
+      else { score -= 1; notes.push(`负债率 ${debt.toFixed(0)}% 很高`); }
+    }
+    fundLight = score >= 2 ? "green" : score >= 0 ? "yellow" : "red";
+    fundReason = notes.join("·") || "数据不足";
+  }
+
+  // ---------- 2. 估值（用行业相对 + 52 周位置近似） ----------
+  let valLight: Light = "yellow";
+  let valReason = "中性";
+  const pos = detail.price_summary?.week_52_position_pct;
+  if (pos != null) {
+    const pct = pos * 100;
+    if (pct < 20) { valLight = "green"; valReason = `52 周位置仅 ${pct.toFixed(0)}%，处于低位（可能便宜，也可能基本面恶化）`; }
+    else if (pct < 50) { valLight = "green"; valReason = `52 周位置 ${pct.toFixed(0)}%，中低位`; }
+    else if (pct < 80) { valLight = "yellow"; valReason = `52 周位置 ${pct.toFixed(0)}%，中性偏高`; }
+    else { valLight = "red"; valReason = `52 周位置 ${pct.toFixed(0)}%，靠近高位（可能追高）`; }
+  }
+
+  // ---------- 3. 技术面 ----------
+  let techLight: Light = "gray";
+  let techReason = "无数据";
+  const maStat = detail.price_summary?.ma_status;
+  const volRatio = detail.price_summary?.volume_ratio_5d;
+  if (maStat) {
+    if (maStat === "bullish") { techLight = "green"; techReason = "多头排列（MA5>10>20>60，趋势向上）"; }
+    else if (maStat === "bearish") { techLight = "red"; techReason = "空头排列（MA 单调向下，趋势走弱）"; }
+    else { techLight = "yellow"; techReason = "震荡（均线交错）"; }
+    if (volRatio != null && volRatio > 2) techReason += `· 今日放量 ${volRatio.toFixed(1)}x 🔥`;
+    if (volRatio != null && volRatio < 0.5) techReason += `· 今日缩量 ${volRatio.toFixed(1)}x`;
+  }
+
+  // ---------- 4. AI 推荐 ----------
+  const aiIn = detail.in_portfolio;
+  let aiLight: Light = "gray";
+  let aiReason = "本月模型未推荐";
+  if (aiIn) {
+    if (aiIn.ensemble) { aiLight = "green"; aiReason = "本月 Ensemble 综合推荐持仓"; }
+    else if (aiIn.path_a && aiIn.path_d) { aiLight = "green"; aiReason = "Path A + Path D 双重推荐"; }
+    else if (aiIn.path_a) { aiLight = "yellow"; aiReason = "Path A (量价模型) 单边推荐"; }
+    else if (aiIn.path_d) { aiLight = "yellow"; aiReason = "Path D (LLM 行业) 单边推荐"; }
+  }
+
+  // ---------- 综合判断 ----------
+  const lights = [fundLight, valLight, techLight, aiLight];
+  const greens = lights.filter((l) => l === "green").length;
+  const reds = lights.filter((l) => l === "red").length;
+  let overall: { tone: Light; label: string; advice: string };
+  if (greens >= 3 && reds === 0) {
+    overall = { tone: "green", label: "✅ 综合较优", advice: "基本面、技术面、AI 推荐都偏正面。可按推荐价位买入。" };
+  } else if (reds >= 2) {
+    overall = { tone: "red", label: "🚨 综合偏弱", advice: "多项警示信号。如果纯跟单（不查个股）建议跳过这只，从 peers 里挑替代。" };
+  } else if (greens >= 2 && reds === 0) {
+    overall = { tone: "green", label: "🟢 可关注", advice: "整体偏正面，可按推荐价位试探性买入小仓位。" };
+  } else if (reds === 1) {
+    overall = { tone: "yellow", label: "⚠️ 谨慎", advice: "有 1 项警示信号。建议买入仓位减半，或等回调到下限再考虑。" };
+  } else {
+    overall = { tone: "yellow", label: "🟡 中性", advice: "信号不强不弱，按你的整体策略执行即可。" };
+  }
+
+  const toneClass = (l: Light) =>
+    l === "green" ? "bg-up/10 border-up/40 text-up" :
+    l === "red" ? "bg-down/10 border-down/40 text-down" :
+    l === "yellow" ? "bg-yellow-500/10 border-yellow-500/40 text-yellow-400" :
+    "bg-panel-2 border-border text-muted";
+
+  const dot = (l: Light) =>
+    l === "green" ? "🟢" : l === "red" ? "🔴" : l === "yellow" ? "🟡" : "⚪";
+
+  return (
+    <Card className={`border-2 ${
+      overall.tone === "green" ? "border-up/40" :
+      overall.tone === "red" ? "border-down/40" :
+      "border-yellow-500/40"
+    }`}>
+      <CardHeader
+        title={`一句话判断：${overall.label}`}
+        subtitle={overall.advice}
+      />
+      <CardBody>
+        <div className="grid grid-cols-4 gap-3">
+          <VerdictTile light={fundLight} icon={dot(fundLight)} label="基本面" reason={fundReason} tone={toneClass(fundLight)} />
+          <VerdictTile light={valLight} icon={dot(valLight)} label="估值/位置" reason={valReason} tone={toneClass(valLight)} />
+          <VerdictTile light={techLight} icon={dot(techLight)} label="技术面" reason={techReason} tone={toneClass(techLight)} />
+          <VerdictTile light={aiLight} icon={dot(aiLight)} label="AI 推荐" reason={aiReason} tone={toneClass(aiLight)} />
+        </div>
+        <div className="text-[10px] text-muted leading-relaxed mt-3">
+          🟢 = 利好；🟡 = 中性；🔴 = 警示；⚪ = 数据不足。<br />
+          ⚠️ 评分仅基于公开数据 + 量化规则，<strong className="text-fg">不构成投资建议</strong>。极端事件、突发利空、政策变化不在此评分覆盖范围内。
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+function VerdictTile({ icon, label, reason, tone }: { light: Light; icon: string; label: string; reason: string; tone: string }) {
+  return (
+    <div className={`rounded-md border p-3 ${tone}`}>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-xl">{icon}</span>
+        <span className="text-sm font-medium">{label}</span>
+      </div>
+      <div className="text-[11px] leading-relaxed opacity-90">{reason}</div>
     </div>
   );
 }

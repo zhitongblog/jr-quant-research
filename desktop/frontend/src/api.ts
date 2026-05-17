@@ -191,6 +191,11 @@ export interface StockDetail {
   peers: Peer[];
   fundamentals: Fundamentals | null;
   price_summary: PriceSummary | null;
+  in_portfolio: {
+    path_a: boolean;
+    path_d: boolean;
+    ensemble: boolean;
+  };
 }
 
 export interface PriceRow {
