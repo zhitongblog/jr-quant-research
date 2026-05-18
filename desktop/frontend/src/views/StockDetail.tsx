@@ -4,6 +4,7 @@ import { Card, CardBody, CardHeader, Pill } from "@/components/Card";
 import {
   ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceDot,
 } from "recharts";
+import { useThemeColors } from "@/hooks/useThemeColors";
 
 const FACTOR_LABEL: Record<string, string> = {
   limit_up_reversal_20d: "涨停反转 (20日)",
@@ -32,6 +33,7 @@ export function StockDetailView({
   const [detail, setDetail] = useState<StockDetail | null>(null);
   const [prices, setPrices] = useState<StockPrices | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const tc = useThemeColors();
 
   useEffect(() => {
     setError(null);
@@ -104,19 +106,19 @@ export function StockDetailView({
                 data={prices.rows}
                 margin={{ top: 8, right: 16, bottom: 8, left: 8 }}
               >
-                <CartesianGrid stroke="#232a3a" strokeDasharray="3 3" />
-                <XAxis dataKey="date" stroke="#94a3b8" fontSize={11}
+                <CartesianGrid stroke={tc.border} strokeDasharray="3 3" />
+                <XAxis dataKey="date" stroke={tc.muted} fontSize={11}
                   tickFormatter={(d) => d.slice(5)} />
-                <YAxis yAxisId="price" stroke="#94a3b8" fontSize={11} domain={["dataMin", "dataMax"]} />
-                <YAxis yAxisId="vol" orientation="right" stroke="#94a3b8" fontSize={11}
+                <YAxis yAxisId="price" stroke={tc.muted} fontSize={11} domain={["dataMin", "dataMax"]} />
+                <YAxis yAxisId="vol" orientation="right" stroke={tc.muted} fontSize={11}
                   tickFormatter={(v) => `${(v / 1e7).toFixed(0)}M`} />
                 <Tooltip
-                  contentStyle={{ background: "#131822", border: "1px solid #232a3a", borderRadius: 6, fontSize: 12 }}
-                  labelStyle={{ color: "#e5e7eb" }}
+                  contentStyle={{ background: tc.panel, border: `1px solid ${tc.border}`, borderRadius: 6, fontSize: 12 }}
+                  labelStyle={{ color: tc.fg }}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar yAxisId="vol" dataKey="volume" name="成交量" fill="#3a4255" />
-                <Line yAxisId="price" type="monotone" dataKey="close" name="收盘价" stroke="#38bdf8" dot={false} strokeWidth={2} />
+                <Bar yAxisId="vol" dataKey="volume" name="成交量" fill={tc.border} />
+                <Line yAxisId="price" type="monotone" dataKey="close" name="收盘价" stroke={tc.accent} dot={false} strokeWidth={2} />
                 {limitUpDays.map((d) => (
                   <ReferenceDot
                     key={d.date}
@@ -124,8 +126,8 @@ export function StockDetailView({
                     x={d.date}
                     y={d.close}
                     r={4}
-                    fill="#ef4444"
-                    stroke="#ef4444"
+                    fill={tc.up}
+                    stroke={tc.up}
                   />
                 ))}
               </ComposedChart>

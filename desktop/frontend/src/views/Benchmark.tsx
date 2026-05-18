@@ -5,12 +5,14 @@ import { fmtMoney, useProfile } from "@/profile";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
+import { useThemeColors } from "@/hooks/useThemeColors";
 
 export function BenchmarkView({ refreshKey }: { refreshKey: number }) {
   const [profile] = useProfile();
   const [data, setData] = useState<EtfComparison | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [days, setDays] = useState(252);
+  const tc = useThemeColors();
 
   useEffect(() => {
     setError(null);
@@ -114,19 +116,19 @@ export function BenchmarkView({ refreshKey }: { refreshKey: number }) {
             <div className="h-80 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
-                  <CartesianGrid stroke="#232a3a" strokeDasharray="3 3" />
-                  <XAxis dataKey="date" stroke="#94a3b8" fontSize={11}
+                  <CartesianGrid stroke={tc.border} strokeDasharray="3 3" />
+                  <XAxis dataKey="date" stroke={tc.muted} fontSize={11}
                     tickFormatter={(d: string) => d.slice(5)} />
-                  <YAxis stroke="#94a3b8" fontSize={11}
+                  <YAxis stroke={tc.muted} fontSize={11}
                     tickFormatter={(v) => `${v.toFixed(1)}%`} />
                   <Tooltip
-                    contentStyle={{ background: "#131822", border: "1px solid #232a3a", borderRadius: 6, fontSize: 12 }}
-                    labelStyle={{ color: "#e5e7eb" }}
+                    contentStyle={{ background: tc.panel, border: `1px solid ${tc.border}`, borderRadius: 6, fontSize: 12 }}
+                    labelStyle={{ color: tc.fg }}
                     formatter={(v) => (typeof v === "number" ? `${v.toFixed(2)}%` : `${v}`)}
                   />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Line type="monotone" dataKey="csi300" name="CSI300 指数"
-                    stroke="#94a3b8" dot={false} strokeWidth={2} />
+                    stroke={tc.muted} dot={false} strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </div>

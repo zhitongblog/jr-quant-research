@@ -1,18 +1,56 @@
 @import "tailwindcss";
 
+/* ============================================================
+ * Color tokens. A-share convention: 红涨绿跌.
+ *
+ * Two themes via data-theme on <html>:
+ *   - "notion" : light, friendly (default for beginners)
+ *   - "trading": pure black + high contrast (traditional trading software)
+ * ============================================================ */
+
 @theme {
-  --color-bg: #0b0e14;
-  --color-panel: #131822;
-  --color-panel-2: #1a2030;
-  --color-border: #232a3a;
-  --color-fg: #e5e7eb;
-  --color-muted: #94a3b8;
-  --color-accent: #38bdf8;
-  --color-up: #22c55e;
-  --color-down: #ef4444;
+  /* DEFAULT = trading theme (high contrast, pure black). */
+  --color-bg: #000000;
+  --color-panel: #0a0a0a;
+  --color-panel-2: #141414;
+  --color-border: #2a2a2a;
+  --color-fg: #ffffff;
+  --color-muted: #999999;
+  --color-accent: #00d9ff;
+  --color-up: #ff3b3b;       /* 涨 → 红 */
+  --color-down: #00dd55;     /* 跌 → 绿 */
+  --color-warn: #f59e0b;
 
   --font-sans: 'Inter', 'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: ui-monospace, Consolas, monospace;
+}
+
+/* Notion-style light theme — soft, paper-like */
+html[data-theme="notion"] {
+  --color-bg: #ffffff;
+  --color-panel: #fbfbfa;
+  --color-panel-2: #f1f1ef;
+  --color-border: #e9e9e7;
+  --color-fg: #37352f;
+  --color-muted: #787774;
+  --color-accent: #2383e2;
+  --color-up: #e03e3e;        /* 涨 → 红 (notion warm red) */
+  --color-down: #4d9c73;      /* 跌 → 绿 (notion green) */
+  --color-warn: #d97757;
+}
+
+/* Trading theme — explicit override so toggling away from notion still works */
+html[data-theme="trading"] {
+  --color-bg: #000000;
+  --color-panel: #0a0a0a;
+  --color-panel-2: #141414;
+  --color-border: #2a2a2a;
+  --color-fg: #ffffff;
+  --color-muted: #999999;
+  --color-accent: #00d9ff;
+  --color-up: #ff3b3b;
+  --color-down: #00dd55;
+  --color-warn: #f59e0b;
 }
 
 html, body, #root {
@@ -25,4 +63,10 @@ body {
   color: var(--color-fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+/* In light theme, the dashboard borders need a touch more presence */
+html[data-theme="notion"] body {
+  background: #f7f7f5; /* faint paper tint so panel cards stand out */
 }

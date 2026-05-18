@@ -4,6 +4,7 @@ import { Card, CardBody, CardHeader, Pill } from "@/components/Card";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
+import { useThemeColors } from "@/hooks/useThemeColors";
 
 type Series = "csi300" | "path_a" | "path_d" | "ensemble";
 
@@ -11,6 +12,7 @@ export function PerformanceView({ refreshKey }: { refreshKey: number }) {
   const [rows, setRows] = useState<PerformanceRow[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const tc = useThemeColors();
 
   useEffect(() => {
     setError(null);
@@ -43,10 +45,10 @@ export function PerformanceView({ refreshKey }: { refreshKey: number }) {
   }, [rows]);
 
   const colors: Record<Series, string> = {
-    csi300: "#94a3b8",
-    path_a: "#38bdf8",
+    csi300: tc.muted,
+    path_a: tc.accent,
     path_d: "#a855f7",
-    ensemble: "#22c55e",
+    ensemble: tc.up,
   };
 
   if (error) return <div className="p-6 text-down text-sm">加载失败：{error}</div>;
@@ -80,12 +82,12 @@ export function PerformanceView({ refreshKey }: { refreshKey: number }) {
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
-                    <CartesianGrid stroke="#232a3a" strokeDasharray="3 3" />
-                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} />
-                    <YAxis stroke="#94a3b8" fontSize={11} tickFormatter={(v) => `${v.toFixed(1)}%`} />
+                    <CartesianGrid stroke={tc.border} strokeDasharray="3 3" />
+                    <XAxis dataKey="date" stroke={tc.muted} fontSize={11} />
+                    <YAxis stroke={tc.muted} fontSize={11} tickFormatter={(v) => `${v.toFixed(1)}%`} />
                     <Tooltip
-                      contentStyle={{ background: "#131822", border: "1px solid #232a3a", borderRadius: 6, fontSize: 12 }}
-                      labelStyle={{ color: "#e5e7eb" }}
+                      contentStyle={{ background: tc.panel, border: `1px solid ${tc.border}`, borderRadius: 6, fontSize: 12 }}
+                      labelStyle={{ color: tc.fg }}
                       formatter={(v) => (typeof v === "number" ? `${v.toFixed(2)}%` : `${v}`)}
                     />
                     <Legend wrapperStyle={{ fontSize: 12 }} />

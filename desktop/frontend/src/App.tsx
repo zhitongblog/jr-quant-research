@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { OverviewView } from "@/views/Overview";
@@ -34,6 +34,10 @@ export default function App() {
   const [profile] = useProfile();
   const refresh = useCallback(() => setRefreshKey((x) => x + 1), []);
   const isBeginner = profile.mode === "beginner";
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = profile.theme;
+  }, [profile.theme]);
 
   const navigate = useCallback((k: ViewKey) => {
     setView(k);

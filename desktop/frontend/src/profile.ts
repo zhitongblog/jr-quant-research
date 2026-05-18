@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 export type Risk = "low" | "medium" | "high";
 
 export type Mode = "beginner" | "expert";
+export type Theme = "notion" | "trading";
 
 export interface Profile {
   capital: number;             // total available capital (元)
@@ -14,6 +15,7 @@ export interface Profile {
   numHoldings: number | "auto"; // override max holding count; "auto" = derive from capital
   buyBandPct: number;          // tolerance band around yesterday close (e.g. 0.03 = ±3%)
   mode: Mode;                  // beginner = simplified UI, expert = full features
+  theme: Theme;                // notion = light/friendly, trading = pure black/sharp
 }
 
 const DEFAULT: Profile = {
@@ -24,6 +26,7 @@ const DEFAULT: Profile = {
   numHoldings: "auto",
   buyBandPct: 0.03,
   mode: "beginner",
+  theme: "notion",
 };
 
 // A-share constraint: minimum lot = 100 shares. Sized so user can fit at

@@ -152,6 +152,49 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
         </CardBody>
       </Card>
 
+      <Card>
+        <CardHeader title="界面主题"
+          subtitle="可随时切换，立即生效" />
+        <CardBody>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { key: "notion", label: "Notion 浅色", desc: "白底柔色，新手友好，长时间阅读不累眼", preview: ["#fbfbfa", "#37352f", "#e03e3e", "#4d9c73"] },
+              { key: "trading", label: "Trading 深色", desc: "纯黑底高对比，传统交易软件风格", preview: ["#0a0a0a", "#ffffff", "#ff3b3b", "#00dd55"] },
+            ] as const).map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => updateProfile({ theme: t.key })}
+                className={`text-left rounded-md border p-3 transition ${
+                  profile.theme === t.key
+                    ? "bg-accent/10 border-accent/40"
+                    : "bg-panel-2 border-border hover:border-accent/30"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-sm font-medium ${
+                    profile.theme === t.key ? "text-accent" : "text-fg"
+                  }`}>
+                    {t.label}
+                  </span>
+                  {profile.theme === t.key && <span className="text-xs text-accent">✓ 当前</span>}
+                </div>
+                <div className="flex gap-1 mb-2">
+                  {t.preview.map((c, i) => (
+                    <div key={i} className="w-6 h-6 rounded border border-border" style={{ background: c }} />
+                  ))}
+                </div>
+                <div className="text-xs text-muted leading-relaxed">{t.desc}</div>
+              </button>
+            ))}
+          </div>
+          <div className="text-[11px] text-muted mt-3 leading-relaxed">
+            两套主题都用 <strong className="text-up">红</strong> = 涨 / <strong className="text-down">绿</strong> = 跌
+            （A 股传统约定）。设置保存在本机 localStorage。
+          </div>
+        </CardBody>
+      </Card>
+
       <DeepseekKeyCard />
 
       <Card>
