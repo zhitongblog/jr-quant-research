@@ -129,9 +129,13 @@ def build_path_a_holdings(today: str) -> list[str]:
 def run_llm_picker(today: str) -> dict | None:
     """Invoke llm_industry_picker.py as a subprocess and read its output JSON."""
     print("  PathD launching llm_industry_picker.py ...", flush=True)
+    sp_kwargs: dict = {}
+    if sys.platform == "win32":
+        sp_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW  # type: ignore[attr-defined]
     r = subprocess.run(
         [PYTHON, str(PROJ / "scripts/llm_industry_picker.py")],
         capture_output=True, text=True, encoding="utf-8", timeout=600,
+        **sp_kwargs,
     )
     print(r.stdout[-2000:] if r.stdout else "")
     if r.returncode != 0:

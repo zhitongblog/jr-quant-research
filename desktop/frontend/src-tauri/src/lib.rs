@@ -16,6 +16,22 @@ use std::thread;
 use std::time::Duration;
 use tauri::{Manager, RunEvent};
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+/// Build a Command that won't pop a console window on Windows.
+fn no_console_cmd<P: AsRef<std::ffi::OsStr>>(program: P) -> Command {
+    let mut cmd = Command::new(program);
+    #[cfg(target_os = "windows")]
+    {
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd
+}
+
 struct Sidecar(Mutex<Option<Child>>);
 static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 
@@ -25,7 +41,7 @@ fn spawn_sidecar_dev() -> std::io::Result<Child> {
     let api = std::env::var("JR_DEV_API")
         .unwrap_or_else(|_| "D:/PM/jr/desktop/api/main.py".to_string());
     log::info!("spawn sidecar (dev): {} {}", py, api);
-    Command::new(&py)
+    no_console_cmd(&py)
         .arg(&api)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -39,7 +55,7 @@ fn spawn_sidecar_release(app: &tauri::AppHandle) -> std::io::Result<Child> {
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::NotFound, e.to_string()))?;
     let exe = resource_dir.join("jr-api").join("jr-api.exe");
     log::info!("spawn sidecar (release): {:?}", exe);
-    Command::new(&exe)
+    no_console_cmd(&exe)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()

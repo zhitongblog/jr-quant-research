@@ -1188,10 +1188,14 @@ def _run_subprocess(task_id: str, cmd: list[str]) -> None:
     job["started_at"] = time.time()
     env = os.environ.copy()
     env.update(_secrets_to_env())  # inject DEEPSEEK_API_KEY etc. from secrets.json
+    # Suppress console window flash when launching python.exe from a GUI parent.
+    popen_kwargs: dict = {}
+    if sys.platform == "win32":
+        popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW  # type: ignore[attr-defined]
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 bufsize=1, text=True, encoding="utf-8", errors="replace",
-                                env=env)
+                                env=env, **popen_kwargs)
         for line in proc.stdout:
             job["log"].append(line.rstrip())
             # keep log bounded to last 500 lines
