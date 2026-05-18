@@ -1196,7 +1196,11 @@ def _run_subprocess(task_id: str, cmd: list[str]) -> None:
     job = JOBS[task_id]
     job["status"] = "running"
     job["started_at"] = time.time()
-    env = os.environ.copy()
+    # Build a clean env for the spawned Python, stripping PyInstaller's
+    # bootloader vars that would otherwise leak into the child interpreter and
+    # crash it (partition_address_space.cc / _PYI_ conflicts).
+    env = {k: v for k, v in os.environ.items()
+           if not k.startswith(("_PYI_", "_MEIPASS", "PYTHONPATH", "PYTHONHOME"))}
     env.update(_secrets_to_env())  # inject DEEPSEEK_API_KEY etc. from secrets.json
     # Suppress console window flash when launching python.exe from a GUI parent.
     popen_kwargs: dict = {}
