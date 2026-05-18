@@ -429,6 +429,92 @@ def load_fundamentals(qlib_symbol: str) -> dict | None:
     return out
 
 
+def load_valuation_summary(qlib_symbol: str) -> dict | None:
+    """Read per-stock valuation history CSV and compute current + 5y percentile."""
+    sym = _short_symbol(qlib_symbol)
+    p = QLIB / "valuation" / f"{sym}.csv"
+    if not p.exists():
+        return None
+    try:
+        df = pd.read_csv(p, encoding="utf-8-sig", parse_dates=["数据日期"])
+    except Exception:
+        return None
+    if df is None or len(df) < 30:
+        return None
+    df = df.sort_values("数据日期").reset_index(drop=True)
+    last = df.iloc[-1]
+    out: dict = {
+        "as_of": str(last["数据日期"].date()),
+        "pe_ttm": _safe_float(last.get("PE(TTM)")),
+        "pe_static": _safe_float(last.get("PE(静)")),
+        "pb": _safe_float(last.get("市净率")),
+        "ps": _safe_float(last.get("市销率")),
+        "market_cap": _safe_float(last.get("总市值")),
+        "n_years_history": float((df["数据日期"].max() - df["数据日期"].min()).days / 365.25),
+    }
+
+    # 5y percentile (or all history if shorter)
+    cutoff = df["数据日期"].max() - pd.Timedelta(days=365 * 5)
+    recent = df[df["数据日期"] >= cutoff]
+    for col, key in (("PE(TTM)", "pe_pct_5y"), ("市净率", "pb_pct_5y")):
+        ser = pd.to_numeric(recent[col], errors="coerce").dropna()
+        # Negative PE means losses — exclude from percentile
+        ser = ser[ser > 0]
+        if len(ser) >= 50 and out.get(key.replace("_pct_5y", "")) is not None:
+            v = out[key.replace("_pct_5y", "") if key == "pb_pct_5y" else "pe_ttm"]
+            if v is not None and v > 0:
+                pct = float((ser <= v).sum() / len(ser))
+                out[key] = pct
+    return out
+
+
+def _safe_float(v) -> float | None:
+    if v is None or pd.isna(v):
+        return None
+    try:
+        f = float(v)
+        return f if pd.notna(f) else None
+    except (ValueError, TypeError):
+        return None
+
+
+def load_earnings_forecast(qlib_symbol: str) -> dict | None:
+    """Find the most recent earnings forecast for this stock across cached quarters."""
+    sym = _short_symbol(qlib_symbol)
+    ydir = QLIB / "yjyg"
+    if not ydir.exists():
+        return None
+    rows: list[dict] = []
+    for p in sorted(ydir.glob("*.csv"), reverse=True):
+        try:
+            df = pd.read_csv(p, encoding="utf-8-sig", dtype={"股票代码": str})
+        except Exception:
+            continue
+        mine = df[df["股票代码"].astype(str).str.zfill(6) == sym]
+        if mine.empty:
+            continue
+        report_period = p.stem
+        for _, r in mine.iterrows():
+            rows.append({
+                "report_period": report_period,
+                "metric": str(r.get("预测指标", "")),
+                "type": str(r.get("预告类型", "")),
+                "change_pct": _safe_float(r.get("业绩变动幅度")),
+                "forecast_value": _safe_float(r.get("预测数值")),
+                "prev_year_value": _safe_float(r.get("上年同期值")),
+                "description": str(r.get("业绩变动", ""))[:200],
+                "announce_date": str(r.get("公告日期", "")),
+            })
+        if rows:
+            break  # most recent quarter only
+    if not rows:
+        return None
+    # Prefer 净利润 row if present
+    net_profit_rows = [r for r in rows if "净利润" in r["metric"] and "扣除" not in r["metric"]]
+    primary = net_profit_rows[0] if net_profit_rows else rows[0]
+    return {"primary": primary, "all_metrics": rows}
+
+
 def compute_price_summary(df: pd.DataFrame) -> dict | None:
     """52-week high/low, current position, MA5/10/20/60, volume ratio."""
     if df is None or len(df) < 20:
@@ -518,6 +604,8 @@ def stock_detail(symbol: str, peers: int = 8):
     fund = load_fundamentals(symbol)
     long_df = load_daily(symbol, days=260)
     price_summary = compute_price_summary(long_df)
+    valuation = load_valuation_summary(symbol)
+    earnings_forecast = load_earnings_forecast(symbol)
 
     # In-portfolio flags (which strategies recommend this stock right now)
     in_portfolio = {"path_a": False, "path_d": False, "ensemble": False}
@@ -542,6 +630,8 @@ def stock_detail(symbol: str, peers: int = 8):
         "peers": peer_table,
         "fundamentals": fund,
         "price_summary": price_summary,
+        "valuation": valuation,
+        "earnings_forecast": earnings_forecast,
         "in_portfolio": in_portfolio,
     }
 

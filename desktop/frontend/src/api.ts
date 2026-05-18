@@ -168,6 +168,34 @@ export interface Fundamentals {
   prev_current_ratio?: number;
 }
 
+export interface ValuationSummary {
+  as_of: string;
+  pe_ttm: number | null;
+  pe_static: number | null;
+  pb: number | null;
+  ps: number | null;
+  market_cap: number | null;
+  n_years_history: number;
+  pe_pct_5y?: number;
+  pb_pct_5y?: number;
+}
+
+export interface EarningsForecastEntry {
+  report_period: string;
+  metric: string;
+  type: string;             // 略增 / 预增 / 预亏 / etc.
+  change_pct: number | null;
+  forecast_value: number | null;
+  prev_year_value: number | null;
+  description: string;
+  announce_date: string;
+}
+
+export interface EarningsForecast {
+  primary: EarningsForecastEntry;
+  all_metrics: EarningsForecastEntry[];
+}
+
 export interface PriceSummary {
   as_of: string;
   close: number;
@@ -191,6 +219,8 @@ export interface StockDetail {
   peers: Peer[];
   fundamentals: Fundamentals | null;
   price_summary: PriceSummary | null;
+  valuation: ValuationSummary | null;
+  earnings_forecast: EarningsForecast | null;
   in_portfolio: {
     path_a: boolean;
     path_d: boolean;

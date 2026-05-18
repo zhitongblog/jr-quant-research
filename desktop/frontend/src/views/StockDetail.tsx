@@ -88,6 +88,8 @@ export function StockDetailView({
         </div>
       </div>
 
+      {detail.earnings_forecast && <EarningsForecastBanner ef={detail.earnings_forecast} />}
+
       <VerdictCard detail={detail} />
 
       <Card>
@@ -132,9 +134,10 @@ export function StockDetailView({
         </CardBody>
       </Card>
 
-      {/* New: Price Summary + Fundamentals row */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* New: Price Summary + Valuation + Fundamentals row */}
+      <div className="grid grid-cols-3 gap-4">
         <PriceSummaryCard summary={detail.price_summary} />
+        <ValuationCard val={detail.valuation} />
         <FundamentalsCard fund={detail.fundamentals} />
       </div>
 
@@ -268,16 +271,26 @@ function VerdictCard({ detail }: { detail: import("@/api").StockDetail }) {
     fundReason = notes.join("·") || "数据不足";
   }
 
-  // ---------- 2. 估值（用行业相对 + 52 周位置近似） ----------
+  // ---------- 2. 估值 (优先用 PE 5y 分位；fallback 到 52 周位置) ----------
   let valLight: Light = "yellow";
-  let valReason = "中性";
-  const pos = detail.price_summary?.week_52_position_pct;
-  if (pos != null) {
-    const pct = pos * 100;
-    if (pct < 20) { valLight = "green"; valReason = `52 周位置仅 ${pct.toFixed(0)}%，处于低位（可能便宜，也可能基本面恶化）`; }
-    else if (pct < 50) { valLight = "green"; valReason = `52 周位置 ${pct.toFixed(0)}%，中低位`; }
-    else if (pct < 80) { valLight = "yellow"; valReason = `52 周位置 ${pct.toFixed(0)}%，中性偏高`; }
-    else { valLight = "red"; valReason = `52 周位置 ${pct.toFixed(0)}%，靠近高位（可能追高）`; }
+  let valReason = "数据不足";
+  const pePct = detail.valuation?.pe_pct_5y;
+  if (pePct != null) {
+    const p = pePct * 100;
+    if (p < 25) { valLight = "green"; valReason = `PE 处于 5 年 ${p.toFixed(0)} 百分位（便宜，过去 5 年里 ${(100-p).toFixed(0)}% 时间比现在贵）`; }
+    else if (p < 50) { valLight = "green"; valReason = `PE 处于 5 年 ${p.toFixed(0)} 百分位（中下，偏便宜）`; }
+    else if (p < 75) { valLight = "yellow"; valReason = `PE 处于 5 年 ${p.toFixed(0)} 百分位（中性）`; }
+    else if (p < 90) { valLight = "red"; valReason = `PE 处于 5 年 ${p.toFixed(0)} 百分位（偏贵）`; }
+    else { valLight = "red"; valReason = `PE 处于 5 年 ${p.toFixed(0)} 百分位（极贵，过去 5 年里 ${(100-p).toFixed(0)}% 时间都比现在便宜）`; }
+  } else {
+    const pos = detail.price_summary?.week_52_position_pct;
+    if (pos != null) {
+      const pct = pos * 100;
+      if (pct < 20) { valLight = "green"; valReason = `52 周位置 ${pct.toFixed(0)}%（低位）`; }
+      else if (pct < 50) { valLight = "green"; valReason = `52 周位置 ${pct.toFixed(0)}%（中低位）`; }
+      else if (pct < 80) { valLight = "yellow"; valReason = `52 周位置 ${pct.toFixed(0)}%`; }
+      else { valLight = "red"; valReason = `52 周位置 ${pct.toFixed(0)}%（高位）`; }
+    }
   }
 
   // ---------- 3. 技术面 ----------
@@ -353,6 +366,142 @@ function VerdictCard({ detail }: { detail: import("@/api").StockDetail }) {
         </div>
       </CardBody>
     </Card>
+  );
+}
+
+// -------- Earnings Forecast Banner --------
+
+function EarningsForecastBanner({ ef }: { ef: import("@/api").EarningsForecast }) {
+  const p = ef.primary;
+  const isGood = p.type.includes("增") || p.type.includes("续盈") || (p.change_pct != null && p.change_pct > 0);
+  const isBad = p.type.includes("减") || p.type.includes("亏") || p.type.includes("续亏") || (p.change_pct != null && p.change_pct < -10);
+  const tone = isGood ? "up" : isBad ? "down" : "accent";
+  const toneBg = isGood ? "border-up/40 bg-up/5" : isBad ? "border-down/40 bg-down/5" : "border-accent/40 bg-accent/5";
+  const icon = isGood ? "📈" : isBad ? "📉" : "📊";
+  return (
+    <div className={`border-2 rounded-md p-3 ${toneBg}`}>
+      <div className="flex items-baseline gap-2 mb-1">
+        <span className="text-xl">{icon}</span>
+        <Pill tone={tone as "up" | "down" | "accent"}>{p.type || "预告"}</Pill>
+        <span className="text-sm text-fg font-medium">{p.metric}</span>
+        <span className="text-xs text-muted">报告期 {p.report_period.slice(0,4)}-Q{Math.ceil(parseInt(p.report_period.slice(4,6))/3)}</span>
+        {p.change_pct != null && (
+          <span className={`ml-auto font-mono text-sm ${
+            p.change_pct >= 0 ? "text-up" : "text-down"
+          }`}>
+            同比 {p.change_pct >= 0 ? "+" : ""}{p.change_pct.toFixed(1)}%
+          </span>
+        )}
+      </div>
+      <div className="text-xs text-fg/85 leading-relaxed">
+        {p.description}
+      </div>
+      {ef.all_metrics.length > 1 && (
+        <details className="mt-2 text-xs text-muted">
+          <summary className="cursor-pointer hover:text-fg">其他 {ef.all_metrics.length - 1} 项预告</summary>
+          <ul className="mt-1 space-y-1 pl-4">
+            {ef.all_metrics.slice(1).map((m, i) => (
+              <li key={i}>
+                <span className="text-fg">{m.metric}</span>
+                {m.change_pct != null && (
+                  <span className={`ml-2 font-mono ${m.change_pct >= 0 ? "text-up" : "text-down"}`}>
+                    {m.change_pct >= 0 ? "+" : ""}{m.change_pct.toFixed(1)}%
+                  </span>
+                )}
+                <span className="text-muted ml-2">{m.description.slice(0, 60)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
+// -------- Valuation Card --------
+
+function ValuationCard({ val }: { val: import("@/api").ValuationSummary | null }) {
+  if (!val) {
+    return (
+      <Card>
+        <CardHeader title="估值 (PE/PB)" />
+        <CardBody>
+          <div className="text-xs text-muted leading-relaxed">
+            尚未拉历史估值数据。<br/>
+            运行 <code className="font-mono bg-panel-2 px-1 rounded">scripts/pull_valuation_earnings.py</code> 后会出现 PE/PB 历史百分位。
+          </div>
+        </CardBody>
+      </Card>
+    );
+  }
+  const fmtPE = (v: number | null) => v == null ? "—" : v < 0 ? "亏损" : v.toFixed(1);
+  const pePctNum = val.pe_pct_5y;
+  const pbPctNum = val.pb_pct_5y;
+
+  const pctLabel = (p: number) => {
+    const v = p * 100;
+    if (v < 25) return { tone: "up", label: `${v.toFixed(0)} 分位 · 偏便宜` };
+    if (v < 50) return { tone: "up", label: `${v.toFixed(0)} 分位 · 中下` };
+    if (v < 75) return { tone: "neutral", label: `${v.toFixed(0)} 分位 · 中性` };
+    if (v < 90) return { tone: "down", label: `${v.toFixed(0)} 分位 · 偏贵` };
+    return { tone: "down", label: `${v.toFixed(0)} 分位 · 极贵` };
+  };
+
+  return (
+    <Card>
+      <CardHeader title="估值 (PE/PB)" subtitle={`${val.n_years_history.toFixed(1)} 年历史 · 截止 ${val.as_of}`} />
+      <CardBody className="space-y-3">
+        <ValRow label="PE (TTM)" value={fmtPE(val.pe_ttm)} pct={pePctNum} pctLabel={pePctNum != null ? pctLabel(pePctNum) : null} />
+        <ValRow label="市净率 PB" value={fmtPE(val.pb)} pct={pbPctNum} pctLabel={pbPctNum != null ? pctLabel(pbPctNum) : null} />
+        {val.ps != null && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted">市销率 PS</span>
+            <span className="font-mono text-fg">{val.ps.toFixed(2)}</span>
+          </div>
+        )}
+        {val.market_cap != null && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted">总市值</span>
+            <span className="font-mono text-fg">
+              {val.market_cap >= 1e10
+                ? `${(val.market_cap / 1e8).toFixed(0)} 亿`
+                : `${(val.market_cap / 1e8).toFixed(2)} 亿`}
+            </span>
+          </div>
+        )}
+        <div className="text-[10px] text-muted leading-relaxed pt-2 border-t border-border/30">
+          百分位 = 当前 PE/PB 在过去 5 年中的相对位置。<br />
+          数值越低 = 历史相对越便宜；数值越高 = 历史相对越贵。
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+function ValRow({
+  label, value, pct, pctLabel,
+}: { label: string; value: string; pct: number | null | undefined; pctLabel: { tone: string; label: string } | null }) {
+  const toneClass = pctLabel?.tone === "up" ? "text-up bg-up/10 border-up/30"
+    : pctLabel?.tone === "down" ? "text-down bg-down/10 border-down/30"
+    : "text-muted bg-panel-2 border-border";
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-muted">{label}</span>
+        <span className="font-mono text-base text-fg">{value}</span>
+      </div>
+      {pct != null && pctLabel && (
+        <div className="mt-1.5">
+          <div className="h-1.5 bg-panel-2 rounded overflow-hidden relative">
+            <div className="absolute h-full w-full bg-gradient-to-r from-up/30 via-yellow-500/30 to-down/30" />
+            <div className="absolute h-full w-1 bg-accent" style={{ left: `${pct * 100}%` }} />
+          </div>
+          <div className={`mt-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono border ${toneClass}`}>
+            {pctLabel.label}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
