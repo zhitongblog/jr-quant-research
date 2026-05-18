@@ -1094,6 +1094,16 @@ def news_context_set(body: NewsContextIn):
     return {"ok": True, "n_chars": len(body.text or "")}
 
 
+@app.post("/api/run/refresh_prices")
+async def run_refresh_prices():
+    """Spawn scripts/refresh_prices.py (incremental, ~30 sec)."""
+    task_id = uuid.uuid4().hex[:12]
+    JOBS[task_id] = {"status": "pending", "log": [], "command": "refresh_prices.py"}
+    cmd = [str(VENV_PY), str(SCRIPTS / "refresh_prices.py")]
+    asyncio.get_event_loop().run_in_executor(None, _run_subprocess, task_id, cmd)
+    return {"task_id": task_id, "status": "pending"}
+
+
 @app.post("/api/news/refresh")
 async def news_refresh():
     """Spawn scripts/refresh_news.py and return a task_id to poll."""

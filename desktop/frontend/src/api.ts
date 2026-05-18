@@ -270,6 +270,8 @@ export const api = {
     fetchJSON<{ rows: PerformanceRow[]; message?: string }>("/api/performance/timeseries"),
   runMonthlyUpdate: () =>
     fetchJSON<{ task_id: string; status: string }>("/api/run/monthly_update", { method: "POST" }),
+  refreshPrices: () =>
+    fetchJSON<{ task_id: string; status: string }>("/api/run/refresh_prices", { method: "POST" }),
   runStatus: (taskId: string) => fetchJSON<JobStatus>(`/api/run/status/${taskId}`),
   stockDetail: (symbol: string) => fetchJSON<StockDetail>(`/api/stock/${symbol}`),
   stockPrices: (symbol: string, days = 120) =>
